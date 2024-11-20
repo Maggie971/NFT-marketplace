@@ -17,6 +17,7 @@ const NFTMintAndAuction = () => {
   const [auctionStarted, setAuctionStarted] = useState(false);
   const [auctionEndTime, setAuctionEndTime] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);  // 用来存储剩余时间
+  const [web3, setWeb3] = useState(null);
 
   // 上传图片到 IPFS
   const uploadToIPFS = async (file) => {
