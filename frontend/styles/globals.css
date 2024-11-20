@@ -1,0 +1,38 @@
+/* @tailwind directives are used for utility-first styling */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* Custom styles for input-field, buttons, and other components */
+
+/* Input Field Style */
+.input-field {
+  @apply shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none;
+}
+
+/* Button Style */
+.btn {
+  @apply text-white font-bold py-2 px-4 rounded-full transition duration-300 ease-in-out;
+}
+
+/* Auction Status Component */
+.auction-status {
+  @apply mt-6 p-4 bg-gray-100 rounded-lg shadow-lg;
+}
+
+/* Responsive Clamp for Width */
+.p-clamp {
+  width: clamp(45ch, 50%, 75ch);
+}
