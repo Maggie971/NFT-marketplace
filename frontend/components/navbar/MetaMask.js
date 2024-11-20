@@ -44,7 +44,12 @@ const MetaMask = () => {
         setAccount(account);  // 更新 Web3Context 中的 account
         setProvider(provider);
 
-        setContract(chainId === '0x7a69' ? "NFT_CONTRACT_ADDRESS" : "AUCTION_CONTRACT_ADDRESS");
+        // 使用合约地址替换
+        const nftContractAddress = "0xDf75b170f65aE0DF653D1E81B038A757517252d5";
+        const auctionContractAddress = "0xf6afE8756006F4E62b125fA6b21Cb8aa8754c380";
+
+        // 根据链ID选择对应的合约地址
+        setContract(chainId === '0x7a69' ? nftContractAddress : auctionContractAddress);
         setAccountState(account);
         setIsConnected(true);
       } else {

@@ -18,6 +18,9 @@ const NFTMintAndAuction = () => {
   const [auctionEndTime, setAuctionEndTime] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);  // 用来存储剩余时间
   const [web3, setWeb3] = useState(null);
+  const [highestBid, setHighestBid] = useState(null);
+  const [highestBidder, setHighestBidder] = useState('');
+  const [seller, setSeller] = useState('');  // 添加卖家状态
 
   // 上传图片到 IPFS
   const uploadToIPFS = async (file) => {
@@ -89,33 +92,28 @@ const NFTMintAndAuction = () => {
       console.log('Missing contract or account');
       return;
     }
-  
+
+    const startingBid = ethers.parseEther(auctionAmount); // 使用 ethers.js 转换为 wei
+    const duration = 3600;  // 设置拍卖持续时间为 1 小时
+
     try {
-      const startingBid = ethers.parseEther(auctionAmount); // 使用 ethers.js 转换为 wei
-      const duration = 3600;  // 设置拍卖持续时间为 1 小时
-  
-      // 启动拍卖
-      await auctionContract.methods.startAuction(startingBid, duration).send({ from: account });
+      await auctionContract.methods.startAuction(startingBid, duration).send({ from: account.toLowerCase() });  // 将account转换为小写
       console.log('Auction Started!');
       setAuctionAddress(auctionContract.address);
       setAuctionStarted(true);
-      setAuctionEndTime(Date.now() + duration * 1000);  // 设置拍卖结束时间
+      setAuctionEndTime(Math.floor(Date.now() / 1000) + duration);  // 用秒而非毫秒
     } catch (err) {
       console.error('Auction start failed', err);
     }
   };
-
+  // 出价
   const placeBid = async () => {
     if (!auctionContract) return;
 
+    const bidAmount = ethers.parseEther(auctionAmount); // 使用 ethers.js 转换为 wei
+
     try {
-      const bidAmount = ethers.parseEther(auctionAmount); // 使用 ethers.js 转换为 wei
-      const tx = await auctionContract.methods.placeBid().send({
-        value: bidAmount,
-        from: account,
-      });
-      await tx.wait();  // 等待交易确认
-      console.log('Bid placed!');
+      await auctionContract.methods.placeBid().send({ from: account, value: bidAmount });
     } catch (err) {
       console.error('Bid failed', err);
     }
@@ -123,30 +121,118 @@ const NFTMintAndAuction = () => {
 
   // 更新时间进度条和倒计时
   useEffect(() => {
-    if (auctionStarted && auctionEndTime) {
-      const interval = setInterval(() => {
-        const remainingTime = auctionEndTime - Date.now();
-        if (remainingTime <= 0) {
-          clearInterval(interval);
-          setProgress(100);  // 拍卖结束时设置进度条为100%
-          setTimeRemaining('Auction Ended');  // 拍卖结束时显示 "Auction Ended"
-        } else {
-          setTimeRemaining(formatTime(remainingTime));
-          setProgress((remainingTime / (auctionEndTime - Date.now())) * 100);  // 根据剩余时间更新进度条
+    const fetchAuctionDetails = async () => {
+      if (auctionContract && account) {
+        try {
+          // 获取拍卖状态
+          const auctionStatus = await auctionContract.methods.auctionStarted().call();
+          setAuctionStarted(auctionStatus);
+  
+          // 获取卖家地址
+          const sellerAddress = await auctionContract.methods.seller().call();
+          setSeller(sellerAddress); // 使用setSeller更新卖家地址
+  
+          // 获取拍卖结束时间
+          if (auctionStarted) {
+            const endTime = await auctionContract.methods.auctionEndTime().call();
+            setAuctionEndTime(Number(endTime)); // Ensure it's a number
+  
+            // 计算当前时间与拍卖结束时间的剩余时间
+            const remainingTime = endTime - Math.floor(Date.now() / 1000); // 秒数
+            setTimeRemaining(formatTime(remainingTime));
+  
+            const highestBidAmount = await auctionContract.methods.highestBid().call();
+            setHighestBid(ethers.utils.formatEther(highestBidAmount)); // 将值格式化为 ETH
+            const highestBidderAddress = await auctionContract.methods.highestBidder().call();
+            setHighestBidder(highestBidderAddress);
+          }
+        } catch (error) {
+          console.error('Error fetching auction details:', error);
         }
-      }, 1000);  // 每秒更新一次
+      }
+    };
+  
+    fetchAuctionDetails();
+  }, [auctionContract, account, auctionStarted]);
 
-      return () => clearInterval(interval);  // 清除定时器
+  // 更新时间进度条和倒计时
+useEffect(() => {
+  if (auctionStarted && auctionEndTime) {
+    const interval = setInterval(async () => {
+      const remainingTime = auctionEndTime - Math.floor(Date.now() / 1000); // 剩余时间
+
+      // 自动结束拍卖的条件：剩余时间为0时触发
+      if (remainingTime <= 0) {
+        clearInterval(interval);
+        setProgress(100);  // 拍卖结束时设置进度条为100%
+        setTimeRemaining('Auction Ended');  // 拍卖结束时显示 "Auction Ended"
+        
+        // 调用合约的 endAuction 方法结束拍卖
+        await endAuction();
+      } else {
+        setTimeRemaining(formatTime(remainingTime));
+        setProgress((remainingTime / (auctionEndTime - Math.floor(Date.now() / 1000))) * 100);  // 根据剩余时间更新进度条
+      }
+    }, 1000);  // 每秒更新一次
+
+    return () => clearInterval(interval);  // 清除定时器
+  }
+}, [auctionStarted, auctionEndTime]);
+
+const endAuction = async () => {
+  if (!auctionContract || !account) return;
+
+  try {
+    const sellerAddress = await auctionContract.methods.seller().call();
+    // Convert both addresses to lowercase to ensure case-insensitive comparison
+    if (account.toLowerCase() !== sellerAddress.toLowerCase()) {
+      console.error('Only the seller can end the auction');
+      return;
     }
-  }, [auctionStarted, auctionEndTime]);
+
+    await auctionContract.methods.endAuction().send({ from: account.toLowerCase() });  // 使用小写account地址
+    console.log('Auction Ended!');
+    
+    setAuctionStarted(false);
+    setAuctionEndTime(null);
+    setAuctionAmount('');
+    setTimeRemaining('Auction Ended');
+    setProgress(100);
+  } catch (err) {
+    console.error('Auction end failed', err);
+  }
+};
+
 
   // 格式化剩余时间为 HH:MM:SS 格式
-  const formatTime = (ms) => {
-    const seconds = Math.floor((ms / 1000) % 60);
-    const minutes = Math.floor((ms / (1000 * 60)) % 60);
-    const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const formatTime = (seconds) => {
+    const sec = Math.floor(seconds % 60);
+    const min = Math.floor((seconds / 60) % 60);
+    const hour = Math.floor((seconds / 3600) % 24);
+    return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
+  
+
+  // 监听拍卖开始和结束事件
+  useEffect(() => {
+    if (auctionContract) {
+      auctionContract.on('AuctionStarted', (seller, startingBid, auctionEndTime) => {
+        console.log('Auction Started:', seller, startingBid, auctionEndTime);
+      });
+
+      auctionContract.on('AuctionEnded', (winner, amount) => {
+        console.log('Auction Ended:', winner, amount);
+      });
+
+      // 清理监听器，防止内存泄漏
+      return () => {
+        if (auctionContract) {
+          auctionContract.removeListener('AuctionStarted');
+          auctionContract.removeListener('AuctionEnded');
+        }
+      };
+    }
+  }, [auctionContract]);
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white shadow-lg rounded-lg">
@@ -226,6 +312,7 @@ const NFTMintAndAuction = () => {
           </div>
         )}
       </div>
+
 
       {/* 拍卖状态显示 */}
       <div className="auction-status mt-6">

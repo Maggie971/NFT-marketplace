@@ -14,7 +14,7 @@ const Web3Provider = ({ children }) => {
   const [auctionContract, setAuctionContract] = useState(null);  // 拍卖合约实例
 
   // 设置硬编码的环境变量
-  const TENDERLY_RPC_URL = 'https://virtual.sepolia.rpc.tenderly.co/9bdf6e09-0afd-4352-819d-ee9624b3eca9'; // 手动配置 Tenderly RPC URL
+  const TENDERLY_RPC_URL = 'https://virtual.sepolia.rpc.tenderly.co/759d1b83-d80b-4705-b1ec-e919bf068b5d'; // 手动配置 Tenderly RPC URL
   const NFT_CONTRACT_ADDRESS = '0x70c63D2eda3B9CB23B333e6530aa00F25b172D85'; // 手动配置 NFT 合约地址
   const AUCTION_CONTRACT_ADDRESS = '0xd16A8C11B4cf2F973cF3b6b9aD95914EC42Ed200'; // 手动配置 Auction 合约地址
 

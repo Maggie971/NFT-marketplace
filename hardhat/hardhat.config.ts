@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
       accounts: [process.env.PRIVATE_KEY!],
     },
     tenderly: {
-      url: 'https://virtual.sepolia.rpc.tenderly.co/9bdf6e09-0afd-4352-819d-ee9624b3eca9', // HTTP RPC URL
+      url: 'https://virtual.sepolia.rpc.tenderly.co/759d1b83-d80b-4705-b1ec-e919bf068b5d', // HTTP RPC URL
       accounts: [process.env.PRIVATE_KEY!] // 使用你的私钥，确保环境变量配置
     },
     localhost: {
