@@ -88,7 +88,7 @@ contract Auction {
     }
 
     // 结束拍卖
-    function endAuction() external onlySeller auctionClosed {
+    function endAuction() external {
         auctionEnded = true;
         auctionStarted = false;
 
