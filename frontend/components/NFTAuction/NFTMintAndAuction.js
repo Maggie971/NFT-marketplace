@@ -21,7 +21,7 @@ const NFTMintAndAuction = () => {
   const [highestBid, setHighestBid] = useState(null);
   const [highestBidder, setHighestBidder] = useState('');
   const [seller, setSeller] = useState('');  // 添加卖家状态
-
+  const [tokenId, setTokenId] = useState('');
   // 上传图片到 IPFS
   const uploadToIPFS = async (file) => {
     const formData = new FormData();
@@ -74,7 +74,9 @@ const NFTMintAndAuction = () => {
           .on('receipt', (receipt) => {
             console.log('NFT Minted!');
             setIsMinted(true);
-            setProgress(100);  // 完成铸造时将进度设置为 100
+            setProgress(100);
+            const tokenId = receipt.events.Transfer.returnValues.tokenId;
+            setTokenId(tokenId);
           })
           .on('error', (err) => {
             console.error('Minting failed', err);
@@ -94,7 +96,7 @@ const NFTMintAndAuction = () => {
     }
 
     const startingBid = ethers.parseEther(auctionAmount); // 使用 ethers.js 转换为 wei
-    const duration = 3600;  // 设置拍卖持续时间为 1 小时
+    const duration = 300;  // 设置拍卖持续时间为 1 小时
 
     try {
       await auctionContract.methods.startAuction(startingBid, duration).send({ from: account.toLowerCase() });  // 将account转换为小写
@@ -106,6 +108,8 @@ const NFTMintAndAuction = () => {
       console.error('Auction start failed', err);
     }
   };
+  
+  
   // 出价
   const placeBid = async () => {
     if (!auctionContract) return;
@@ -119,7 +123,9 @@ const NFTMintAndAuction = () => {
     }
   };
 
-  // 更新时间进度条和倒计时
+
+  
+  
   useEffect(() => {
     const fetchAuctionDetails = async () => {
       if (auctionContract && account) {
@@ -133,76 +139,98 @@ const NFTMintAndAuction = () => {
           setSeller(sellerAddress); // 使用setSeller更新卖家地址
   
           // 获取拍卖结束时间
-          if (auctionStarted) {
+          if (auctionStatus) {
             const endTime = await auctionContract.methods.auctionEndTime().call();
             setAuctionEndTime(Number(endTime)); // Ensure it's a number
+  
+            // 获取最高出价和最高出价人
+            const highestBidAmount = await auctionContract.methods.highestBid().call();
+            const parsedHighestBid = BigInt(highestBidAmount.toString()); // 转换为 BigInt
+  
+            setHighestBid(parsedHighestBid);
+  
+            const highestBidderAddress = await auctionContract.methods.highestBidder().call();
+            setHighestBidder(highestBidderAddress);
   
             // 计算当前时间与拍卖结束时间的剩余时间
             const remainingTime = endTime - Math.floor(Date.now() / 1000); // 秒数
             setTimeRemaining(formatTime(remainingTime));
-  
-            const highestBidAmount = await auctionContract.methods.highestBid().call();
-            setHighestBid(ethers.utils.formatEther(highestBidAmount)); // 将值格式化为 ETH
-            const highestBidderAddress = await auctionContract.methods.highestBidder().call();
-            setHighestBidder(highestBidderAddress);
           }
         } catch (error) {
           console.error('Error fetching auction details:', error);
         }
       }
     };
+
+    const resetAuction = async () => {
+      if (!auctionContract || !account) return;
+    
+      try {  
+        // 转移NFT和最高出价金额
+        const highestBidder = await auctionContract.methods.highestBidder().call();
+        if (highestBidder !== '0x0000000000000000000000000000000000000000') {
+          // 转移NFT给最高出价者
+          try {
+            await auctionContract.methods.safeTransferFrom(seller, highestBidder, tokenId).send({ from: seller });
+            console.log("NFT transferred successfully");
+          } catch (error) {
+            console.error("Failed to transfer NFT to highest bidder:", error);
+            // 处理失败情况
+          }
+    
+          // 转移最高出价金额给卖家
+          const highestBid = await auctionContract.methods.highestBid().call();
+          try {
+            await web3.eth.sendTransaction({ from: highestBidder, to: seller, value: highestBid });
+            console.log("Highest bid transferred successfully");
+          } catch (error) {
+            console.error("Failed to transfer highest bid to seller:", error);
+            // 处理失败情况
+          }
+        } else {
+          console.log("No bids placed, auction ended without transferring NFT or payment");
+        }
+        await auctionContract.methods.resetAuction().send({ from: account.toLowerCase() });
+        console.log('Auction reset and new auction can be started!');
+        // 更新前端状态
+        setAuctionStarted(false);
+        setAuctionEndTime(null);
+        setAuctionAmount('');
+        setTimeRemaining('Auction Ended');
+        setProgress(100);
+      } catch (err) {
+        console.error('Auction reset failed', err);
+      }
+    };
   
     fetchAuctionDetails();
-  }, [auctionContract, account, auctionStarted]);
-
-  // 更新时间进度条和倒计时
-useEffect(() => {
-  if (auctionStarted && auctionEndTime) {
-    const interval = setInterval(async () => {
-      const remainingTime = auctionEndTime - Math.floor(Date.now() / 1000); // 剩余时间
-
-      // 自动结束拍卖的条件：剩余时间为0时触发
-      if (remainingTime <= 0) {
-        clearInterval(interval);
-        setProgress(100);  // 拍卖结束时设置进度条为100%
-        setTimeRemaining('Auction Ended');  // 拍卖结束时显示 "Auction Ended"
-        
-        // 调用合约的 endAuction 方法结束拍卖
-        await endAuction();
-      } else {
-        setTimeRemaining(formatTime(remainingTime));
-        setProgress((remainingTime / (auctionEndTime - Math.floor(Date.now() / 1000))) * 100);  // 根据剩余时间更新进度条
-      }
-    }, 1000);  // 每秒更新一次
-
-    return () => clearInterval(interval);  // 清除定时器
-  }
-}, [auctionStarted, auctionEndTime]);
-
-const endAuction = async () => {
-  if (!auctionContract || !account) return;
-
-  try {
-    const sellerAddress = await auctionContract.methods.seller().call();
-    // Convert both addresses to lowercase to ensure case-insensitive comparison
-    if (account.toLowerCase() !== sellerAddress.toLowerCase()) {
-      console.error('Only the seller can end the auction');
-      return;
+  
+    // 每秒更新时间进度条和倒计时
+    let intervalId;
+    if (auctionStarted && auctionEndTime) {
+      intervalId = setInterval(async () => {
+        const remainingTime = auctionEndTime - Math.floor(Date.now() / 1000); // 剩余时间
+  
+        // 自动结束拍卖的条件：剩余时间为0时触发
+        if (remainingTime <= 0) {
+          clearInterval(intervalId);
+          setProgress(100);  // 拍卖结束时设置进度条为100%
+          setTimeRemaining('Auction Ended');  // 拍卖结束时显示 "Auction Ended"
+          
+          // 在这里直接重置拍卖状态
+          await resetAuction(); // 调用重置函数而不是 endAuction
+        } else {
+          setTimeRemaining(formatTime(remainingTime));
+          setProgress((remainingTime / (auctionEndTime - Math.floor(Date.now() / 1000))) * 100);  // 根据剩余时间更新进度条
+        }
+      }, 1000);  // 每秒更新一次
     }
-
-    await auctionContract.methods.endAuction().send({ from: account.toLowerCase() });  // 使用小写account地址
-    console.log('Auction Ended!');
-    
-    setAuctionStarted(false);
-    setAuctionEndTime(null);
-    setAuctionAmount('');
-    setTimeRemaining('Auction Ended');
-    setProgress(100);
-  } catch (err) {
-    console.error('Auction end failed', err);
-  }
-};
-
+  
+    // 清理定时器
+    return () => clearInterval(intervalId);
+  
+  }, [auctionContract, account, auctionStarted, auctionEndTime]);
+  
 
   // 格式化剩余时间为 HH:MM:SS 格式
   const formatTime = (seconds) => {
@@ -211,28 +239,6 @@ const endAuction = async () => {
     const hour = Math.floor((seconds / 3600) % 24);
     return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
-  
-
-  // 监听拍卖开始和结束事件
-  useEffect(() => {
-    if (auctionContract) {
-      auctionContract.on('AuctionStarted', (seller, startingBid, auctionEndTime) => {
-        console.log('Auction Started:', seller, startingBid, auctionEndTime);
-      });
-
-      auctionContract.on('AuctionEnded', (winner, amount) => {
-        console.log('Auction Ended:', winner, amount);
-      });
-
-      // 清理监听器，防止内存泄漏
-      return () => {
-        if (auctionContract) {
-          auctionContract.removeListener('AuctionStarted');
-          auctionContract.removeListener('AuctionEnded');
-        }
-      };
-    }
-  }, [auctionContract]);
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white shadow-lg rounded-lg">

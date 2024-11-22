@@ -62,7 +62,7 @@ contract Auction {
     }
 
     // 清除拍卖相关状态
-    function resetAuction() internal {
+    function resetAuction() public {
         auctionStarted = false;
         auctionEnded = false;
         highestBid = 0;
