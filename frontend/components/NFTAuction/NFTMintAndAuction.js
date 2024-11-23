@@ -172,9 +172,6 @@ const NFTMintAndAuction = () => {
           // 执行 ETH 转账
           await handleETHTransfer(transferParams); 
           setHasTransferred(true); // 防止重复执行转账操作
-          if (hasTransferred) {
-            ethersAuctionContract.resetAuction();
-          }
         }
       } else {
         setAuctionEndTime(null); // 如果拍卖未开始或已结束，清空结束时间
@@ -206,6 +203,8 @@ const NFTMintAndAuction = () => {
       const nftTx = await ethersNftContract.safeTransferFrom(fromAddress, toAddress, tokenId);
       const nftReceipt = await nftTx.wait();
       console.log("NFT Transfer confirmed:", nftReceipt);
+      await ethersAuctionContract.resetAuction();
+      console.log("Auction has been reset after NFT transfer.");
     } catch (err) {
       console.error("Error transferring NFT:", err);
     }
