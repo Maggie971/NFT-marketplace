@@ -7,12 +7,8 @@ dotenv.config();
 const config: HardhatUserConfig = {
   solidity: "0.8.4",
   networks: {
-    sepolia: {
-      url: process.env.SEPOLIA_RPC_URL!,  // 确保这里有正确的 URL
-      accounts: [process.env.PRIVATE_KEY!],
-    },
     tenderly: {
-      url: 'https://virtual.sepolia.rpc.tenderly.co/0c9945dc-8459-43cf-af53-c0bd35b59779', // HTTP RPC URL
+      url: 'https://virtual.sepolia.rpc.tenderly.co/ce3a6288-3a0b-4250-9f93-d37826c47405', // HTTP RPC URL
       accounts: [process.env.PRIVATE_KEY!] // 使用你的私钥，确保环境变量配置
     },
     localhost: {

@@ -5,34 +5,25 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract Auction {
     address public nftContract;
-    uint256 public nftTokenId;
-    address public seller;
+    uint256 public nftTokenId; // 动态更新
     uint256 public highestBid;
     address public highestBidder;
     uint256 public auctionEndTime;
+    uint256 public startingBid;
     bool public auctionEnded;
-    
-    bool public auctionStarted; // 拍卖开始状态
+    bool public auctionStarted;
 
     event NewBid(address bidder, uint256 amount);
     event AuctionStarted(address seller, uint256 startingBid, uint256 auctionEndTime);
     event AuctionEnded(address winner, uint256 amount);
-    event AuctionError(string message);
     event Debug(string message);
 
-    constructor(address _nftContract, uint256 _nftTokenId, uint256 _startingBid, uint256 _duration) {
+    constructor(address _nftContract) {
         nftContract = _nftContract;
-        nftTokenId = _nftTokenId;
-        seller = msg.sender;
-        highestBid = _startingBid;
-        auctionEndTime = block.timestamp + _duration;
         auctionEnded = false;
-        auctionStarted = false; // 初始状态未开始
-    }
-
-    modifier onlySeller() {
-        require(msg.sender == seller, "Only seller can call this");
-        _;
+        auctionStarted = false;
+        highestBid = 0;
+        highestBidder = address(0);
     }
 
     modifier auctionOpen() {
@@ -52,19 +43,25 @@ contract Auction {
     }
 
     // 启动拍卖并设置起始出价和持续时间
-    function startAuction(uint256 startingBid, uint256 duration) external onlySeller auctionNotStarted {
-        auctionStarted = true;
-        auctionEndTime = block.timestamp + duration; // 拍卖结束时间
-        highestBid = startingBid;
+    function startAuction(uint256 _startingBid, uint256 duration, uint256 _nftTokenId) external auctionNotStarted {
+        address owner = IERC721(nftContract).ownerOf(_nftTokenId);
+        require(msg.sender == owner, "You must own the NFT to start the auction");
 
-        emit AuctionStarted(seller, startingBid, auctionEndTime);
+        nftTokenId = _nftTokenId; // 动态设置 NFT 的 tokenId
+        auctionStarted = true;
+        auctionEndTime = block.timestamp + duration;
+        startingBid = _startingBid;
+        highestBid = 0;
+        highestBidder = address(0);
+
+        emit AuctionStarted(msg.sender, _startingBid, auctionEndTime);
         emit Debug("Auction started successfully");
     }
 
-    // 清除拍卖相关状态
     function resetAuction() public {
         auctionStarted = false;
         auctionEnded = false;
+        startingBid = 0;
         highestBid = 0;
         highestBidder = address(0);
         auctionEndTime = 0;
@@ -73,11 +70,12 @@ contract Auction {
 
     // 进行出价
     function placeBid() external payable auctionOpen {
+        require(msg.value >= startingBid, "Bid must be at least the starting bid");
         require(msg.value > highestBid, "Bid must be higher than the current highest bid");
 
-        // 退款给之前的出价者
-        if (highestBid != 0) {
-            payable(highestBidder).transfer(highestBid);
+        if (highestBidder != address(0)) {
+            bool refunded = payable(highestBidder).send(highestBid);
+            require(refunded, "Refund failed");
         }
 
         highestBid = msg.value;
@@ -88,33 +86,44 @@ contract Auction {
     }
 
     // 结束拍卖
-    function endAuction() external {
+    function endAuction() external auctionClosed {
         auctionEnded = true;
         auctionStarted = false;
 
-        if (highestBidder != address(0)) {
-            // 转移 NFT 到最高出价者
-            try IERC721(nftContract).safeTransferFrom(seller, highestBidder, nftTokenId) {
-                emit Debug("NFT transfer successful");
-            } catch {
-                emit AuctionError("Failed to transfer the NFT to the highest bidder");
-                revert("Failed to transfer the NFT");
-            }
+        emit Debug("Starting NFT transfer...");
+        this.safeTransferNFT(highestBidder, nftTokenId); // Transfer NFT
+        emit Debug("NFT transferred successfully");
 
-            // 将最高出价转移给卖家
-            bool paymentSuccessful = payable(seller).send(highestBid);
-            if (!paymentSuccessful) {
-                emit AuctionError("Failed to transfer the highest bid to the seller");
-                revert("Failed to transfer the highest bid");
-            }
-            emit Debug("Payment transfer successful");
-        } else {
-            emit Debug("No bids placed, auction ended without transferring NFT or payment");
-        }
+        emit Debug("Starting payment transfer...");
+        this.transferHighestBid(); // Transfer payment
+        emit Debug("Payment transfer successful");
 
         emit AuctionEnded(highestBidder, highestBid);
+        resetAuction();
+    }
 
-        // Reset auction state for future use
-        resetAuction(); // 重置拍卖状态，准备好下一次拍卖
+    // 转移资金给卖家
+    function transferHighestBid() public {
+        address seller = IERC721(nftContract).ownerOf(nftTokenId);
+        require(highestBid > 0, "No funds to transfer");
+        require(highestBidder != address(0), "No valid highest bidder");
+
+        emit Debug("Attempting to transfer funds to seller...");
+        (bool success, ) = payable(seller).call{value: highestBid}("");
+        require(success, "Payment transfer failed");
+
+        emit Debug("Payment transfer successful");
+    }
+
+    // 安全转移 NFT
+    function safeTransferNFT(address _to, uint256 _tokenId) public {
+        emit Debug("Verifying the seller and recipient addresses...");
+
+        address seller = IERC721(nftContract).ownerOf(_tokenId);
+        require(_to != address(0), "Invalid recipient address");
+        require(seller != address(0), "Seller address is invalid");
+
+        IERC721(nftContract).safeTransferFrom(seller, _to, _tokenId);
+        emit Debug("NFT transferred successfully");
     }
 }
