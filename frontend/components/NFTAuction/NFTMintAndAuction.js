@@ -24,6 +24,7 @@ const NFTMintAndAuction = () => {
   const [highestBidder, setHighestBidder] = useState('');
   const [tokenId, setTokenId] = useState(null);
   const [hasTransferred, setHasTransferred] = useState(false);
+  const [transferParams, setTransferParams] = useState(null);
 
   // 上传图片到 IPFS
   const uploadToIPFS = async (file) => {
@@ -164,12 +165,12 @@ const NFTMintAndAuction = () => {
         console.log(tokenId);
   
         // 拍卖结束，执行 ETH 和 NFT 转账
-        if (currentTime > endTimeNumber && !hasTransferred && !tokenId) {
+        if (currentTime > endTimeNumber && !hasTransferred && transferParams) {
           console.log("Updated highestBid:", highestBid);
           console.log("Updated highestBidder:", highestBidder);
           
           // 执行 ETH 转账
-          await handleETHTransfer();
+          await handleETHTransfer(transferParams); 
           setHasTransferred(true); // 防止重复执行转账操作
           if (hasTransferred) {
             ethersAuctionContract.resetAuction();
@@ -183,44 +184,51 @@ const NFTMintAndAuction = () => {
     }
   };
   
-  const handleETHTransfer = async () => {
-    const fromAddress = account;
-    const toAddress = highestBidder;
-    const ethAmount = highestBid;
-  
+  // 执行 ETH 转账的函数
+  const handleETHTransfer = async (params) => {
+    const { fromAddress, toAddress, ethAmount } = params;
+
     try {
       const tx = await ethersAuctionContract.transferHighestBid();
       await tx.wait();
       console.log("ETH Transfer confirmed:", tx.hash);
-  
+
       // ETH 转账完成后，执行 NFT 转账
-      await handleNFTTransfer(fromAddress, toAddress);
+      await handleNFTTransfer(fromAddress, toAddress, params.tokenId);
     } catch (err) {
       console.error("Error sending ETH:", err);
     }
   };
-  
-  const handleNFTTransfer = async (fromAddress, toAddress) => {
-    // 确保 tokenId 已经设置并且拍卖已结束
-    if (tokenId !== null) {
-      try {
-        const nftTx = await ethersNftContract.safeTransferFrom(fromAddress, toAddress, tokenId);
-        const nftReceipt = await nftTx.wait();
-        console.log("NFT Transfer confirmed:", nftReceipt);
-      } catch (err) {
-        console.error("Error transferring NFT:", err);
-      }
-    } else {
-      console.error("tokenId is not available for NFT transfer");
+
+  // 执行 NFT 转账的函数
+  const handleNFTTransfer = async (fromAddress, toAddress, tokenId) => {
+    try {
+      const nftTx = await ethersNftContract.safeTransferFrom(fromAddress, toAddress, tokenId);
+      const nftReceipt = await nftTx.wait();
+      console.log("NFT Transfer confirmed:", nftReceipt);
+    } catch (err) {
+      console.error("Error transferring NFT:", err);
     }
   };
-  
+
+  useEffect(() => {
+    if (highestBid !== null && highestBidder !== '' && tokenId !== null) {
+      console.log(tokenId);
+      const params = {
+        fromAddress: account,
+        toAddress: highestBidder,
+        ethAmount: highestBid,
+        tokenId: tokenId, // 使用最新的 tokenId
+      };
+      setTransferParams(params);
+    }
+  }, [highestBid, highestBidder, tokenId]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      //fetchAuctionDetails();
-      ethersAuctionContract.resetAuction();
-    }, 100000000000000); // 每10秒轮询一次
+      fetchAuctionDetails();
+      //ethersAuctionContract.resetAuction();
+    }, 10000); // 每10秒轮询一次
   
     return () => clearInterval(intervalId); // 清理定时器
   }, [ethersAuctionContract]);
