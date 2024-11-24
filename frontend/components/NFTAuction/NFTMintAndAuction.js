@@ -70,7 +70,6 @@ const NFTMintAndAuction = () => {
     try {
       const tx = await ethersNftContract.safeMint(account, ipfsUri);
       const receipt = await tx.wait();
-      console.log(receipt);
   
       // 查找 Transfer 事件
       const transferEvent = receipt.logs.find(
@@ -84,7 +83,6 @@ const NFTMintAndAuction = () => {
   
       // 获取 tokenId（从 Transfer 事件中）
       const tokenId = transferEvent.topics[3];
-      console.log(tokenId);
   
       // 保存 tokenId 到前端状态
        // 将 `tokenId` 保存在前端状态中
@@ -149,7 +147,7 @@ const NFTMintAndAuction = () => {
         const endTimeNumber = Number(endTime.toString());
   
         // 计算剩余时间
-        const remainingTime = endTimeNumber - currentTime;
+        const remainingTime = Math.max(endTimeNumber - currentTime, 0);
   
         // 更新剩余时间
         setTimeRemaining(formatTime(remainingTime));
@@ -160,19 +158,7 @@ const NFTMintAndAuction = () => {
   
         const highestBidderAddress = await ethersAuctionContract.highestBidder();
         setHighestBidder(highestBidderAddress);
-        console.log("Updated highestBid:", highestBid);
-        console.log("Updated highestBidder:", highestBidder);
-        console.log(tokenId);
-  
-        // 拍卖结束，执行 ETH 和 NFT 转账
-        if (currentTime > endTimeNumber && !hasTransferred && transferParams) {
-          console.log("Updated highestBid:", highestBid);
-          console.log("Updated highestBidder:", highestBidder);
-          
-          // 执行 ETH 转账
-          await handleETHTransfer(transferParams); 
-          setHasTransferred(true); // 防止重复执行转账操作
-        }
+
       } else {
         setAuctionEndTime(null); // 如果拍卖未开始或已结束，清空结束时间
       }
@@ -210,9 +196,26 @@ const NFTMintAndAuction = () => {
     }
   };
 
+  const endAuction = async () => {
+    if (!transferParams || hasTransferred) {
+      console.log('Auction end conditions not met or already processed.');
+      return;
+    }
+  
+    try {
+      console.log('Ending auction with parameters:', transferParams);
+      await handleETHTransfer(transferParams); // 执行资金转账
+      setHasTransferred(true); // 防止重复执行
+      console.log('Auction ended successfully.');
+      ethersAuctionContract.resetAuction();
+    } catch (error) {
+      console.error('Error ending auction:', error);
+    }
+  };
+  
+
   useEffect(() => {
-    if (highestBid !== null && highestBidder !== '' && tokenId !== null) {
-      console.log(tokenId);
+    if (highestBid !== null && highestBidder !== '') {
       const params = {
         fromAddress: account,
         toAddress: highestBidder,
@@ -221,13 +224,30 @@ const NFTMintAndAuction = () => {
       };
       setTransferParams(params);
     }
-  }, [highestBid, highestBidder, tokenId]);
+  }, [highestBid, highestBidder]);
+
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (tokenId !== null) { }
+    }, 1000);
+  
+    return () => clearInterval(intervalId); 
+  }, [ethersAuctionContract]);
+
+  useEffect(() => {
+    if (timeRemaining === '00:00:00' && transferParams && !hasTransferred) {
+      console.log('Time reached 0 and parameters ready, ending auction...');
+      endAuction(); // 调用结束逻辑
+    }
+  }, [timeRemaining, transferParams, hasTransferred]);
+  
 
   useEffect(() => {
     const intervalId = setInterval(() => {
       fetchAuctionDetails();
       //ethersAuctionContract.resetAuction();
-    }, 10000); // 每10秒轮询一次
+    }, 1000); // 每10秒轮询一次
   
     return () => clearInterval(intervalId); // 清理定时器
   }, [ethersAuctionContract]);
