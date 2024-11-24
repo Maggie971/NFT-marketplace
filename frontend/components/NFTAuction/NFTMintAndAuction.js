@@ -25,6 +25,21 @@ const NFTMintAndAuction = () => {
   const [tokenId, setTokenId] = useState(null);
   const [hasTransferred, setHasTransferred] = useState(false);
   const [transferParams, setTransferParams] = useState(null);
+  const [isSeller, setIsSeller] = useState(false);
+
+  useEffect(() => {
+    const checkIfSeller = async () => {
+      if (tokenId !== null && ethersNftContract && account) {
+        try {
+          const owner = await ethersNftContract.ownerOf(tokenId);
+          setIsSeller(owner.toLowerCase() === account.toLowerCase());
+        } catch (error) {
+          console.error('Failed to fetch owner:', error);
+        }
+      }
+    };
+    checkIfSeller();
+  }, [tokenId, ethersNftContract, account]);
 
   // 上传图片到 IPFS
   const uploadToIPFS = async (file) => {
@@ -167,51 +182,52 @@ const NFTMintAndAuction = () => {
     }
   };
   
-  // 执行 ETH 转账的函数
   const handleETHTransfer = async (params) => {
     const { fromAddress, toAddress, ethAmount } = params;
-
+  
     try {
+      // 执行 ETH 转账
       const tx = await ethersAuctionContract.transferHighestBid();
-      await tx.wait();
-      console.log("ETH Transfer confirmed:", tx.hash);
-
+      const receipt = await tx.wait();
+      console.log("ETH Transfer confirmed:", receipt);
+  
       // ETH 转账完成后，执行 NFT 转账
-      await handleNFTTransfer(fromAddress, toAddress, params.tokenId);
+      const nftReceipt = await handleNFTTransfer(fromAddress, toAddress, params.tokenId);
+  
+      // 显示交易成功通知
+      if (Notification.permission === "granted") {
+        new Notification("Transaction Successful!", {
+          body: `ETH Transfer Hash: ${receipt.transactionHash}\nNFT Transfer Hash: ${nftReceipt.transactionHash}`,
+        });
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            new Notification("Transaction Successful!", {
+              body: `ETH Transfer Hash: ${receipt.transactionHash}\nNFT Transfer Hash: ${nftReceipt.transactionHash}`,
+            });
+          }
+        });
+      }
+  
+      setHasTransferred(true);
     } catch (err) {
-      console.error("Error sending ETH:", err);
+      console.error("Error in ETH transfer:", err);
+      alert("Transaction Failed! Please try again.");
     }
   };
-
-  // 执行 NFT 转账的函数
+  
   const handleNFTTransfer = async (fromAddress, toAddress, tokenId) => {
     try {
       const nftTx = await ethersNftContract.safeTransferFrom(fromAddress, toAddress, tokenId);
       const nftReceipt = await nftTx.wait();
       console.log("NFT Transfer confirmed:", nftReceipt);
-      await ethersAuctionContract.resetAuction();
-      console.log("Auction has been reset after NFT transfer.");
+      return nftReceipt; // 返回 NFT 转账的回执
     } catch (err) {
       console.error("Error transferring NFT:", err);
+      throw err; // 抛出错误供上层捕获
     }
   };
-
-  const endAuction = async () => {
-    if (!transferParams || hasTransferred) {
-      console.log('Auction end conditions not met or already processed.');
-      return;
-    }
   
-    try {
-      console.log('Ending auction with parameters:', transferParams);
-      await handleETHTransfer(transferParams); // 执行资金转账
-      setHasTransferred(true); // 防止重复执行
-      console.log('Auction ended successfully.');
-      ethersAuctionContract.resetAuction();
-    } catch (error) {
-      console.error('Error ending auction:', error);
-    }
-  };
   
 
   useEffect(() => {
@@ -231,23 +247,32 @@ const NFTMintAndAuction = () => {
     const intervalId = setInterval(() => {
       if (tokenId !== null) { }
     }, 1000);
+
   
     return () => clearInterval(intervalId); 
   }, [ethersAuctionContract]);
 
   useEffect(() => {
+
+    const intervalId1 = setInterval(() => {
+      if (nftUri !== null) { }
+    }, 1000);
+  
+    return () => clearInterval(intervalId1); 
+  }, [ethersAuctionContract]);
+
+  /* useEffect(() => {
     if (timeRemaining === '00:00:00' && transferParams && !hasTransferred) {
       console.log('Time reached 0 and parameters ready, ending auction...');
       endAuction(); // 调用结束逻辑
     }
-  }, [timeRemaining, transferParams, hasTransferred]);
+  }, [timeRemaining, transferParams, hasTransferred]); */
   
-
   useEffect(() => {
     const intervalId = setInterval(() => {
       fetchAuctionDetails();
       //ethersAuctionContract.resetAuction();
-    }, 1000); // 每10秒轮询一次
+    }, 10000); // 每10秒轮询一次
   
     return () => clearInterval(intervalId); // 清理定时器
   }, [ethersAuctionContract]);
@@ -261,11 +286,22 @@ const NFTMintAndAuction = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white shadow-lg rounded-lg">
-      <div className="mb-4">
+  <div className="mb-4">
+    {/* 拍卖未开始 */}
+    {!auctionStarted && (
+      <>
         {!isMinted && !mintError && (
           <>
-            <input type="file" accept="image/*" onChange={handleFileChange} className="input-field w-full mb-4 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400" />
-            <button onClick={mintNFT} className="btn bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-full transition duration-300 ease-in-out">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="input-field w-full mb-4 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+            <button
+              onClick={mintNFT}
+              className="btn bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-full transition duration-300 ease-in-out"
+            >
               Mint NFT
             </button>
           </>
@@ -278,9 +314,7 @@ const NFTMintAndAuction = () => {
             <p className="text-gray-600 text-sm">Token ID: {tokenId}</p>
           </div>
         )}
-      </div>
 
-      {!auctionStarted ? (
         <div>
           <input
             type="text"
@@ -303,35 +337,67 @@ const NFTMintAndAuction = () => {
             Start Auction
           </button>
         </div>
-      ) : (
-        <div>
-          <p className="text-gray-600">Auction is ongoing. Place your bid below:</p>
-          <input
-            type="text"
-            placeholder="Bid Amount (ETH)"
-            value={auctionAmount}
-            onChange={(e) => setAuctionAmount(e.target.value)}
-            className="input-field w-full mb-4 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
-          />
-          <button
-            onClick={placeBid}
-            className="btn bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-full transition duration-300 ease-in-out"
-          >
-            Place Bid
-          </button>
-        </div>
-      )}
+      </>
+    )}
 
-      <div className="mt-4">
-        {auctionStarted && (
-          <div>
-            <p className="text-gray-600">Highest Bid: {highestBid} ETH</p>
-            <p className="text-gray-600">Highest Bidder: {highestBidder}</p>
-            <p className="text-gray-600">Time Remaining: {timeRemaining}</p>
-          </div>
-        )}
-      </div>
-    </div>
+    {/* 拍卖已开始 */}
+    {auctionStarted && (
+      <>
+        <div className="text-center mb-4">
+          {nftUri && (
+            <img
+              src={nftUri}
+              alt="NFT Image"
+              className="w-full max-h-60 object-cover mb-4 rounded-lg"
+            />
+          )}
+          <p className="text-gray-600">Time Remaining: {timeRemaining}</p>
+          <p className="text-gray-600">Highest Bid: {highestBid} ETH</p>
+          <p className="text-gray-600">Highest Bidder: {highestBidder}</p>
+        </div>
+
+        {!isSeller && (
+            <div>
+              <p className="text-gray-600">Auction is ongoing. Place your bid below:</p>
+              <input
+                type="text"
+                placeholder="Bid Amount (ETH)"
+                value={auctionAmount}
+                onChange={(e) => setAuctionAmount(e.target.value)}
+                className="input-field w-full mb-4 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+              />
+              <button
+                onClick={placeBid}
+                className="btn bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-full transition duration-300 ease-in-out"
+              >
+                Place Bid
+              </button>
+            </div>
+          )}
+
+          {isSeller && timeRemaining === '00:00:00' && !hasTransferred && (
+            <button
+              onClick={() => handleETHTransfer(transferParams)} // 直接调用并传递参数
+              className="btn bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-full transition duration-300 ease-in-out"
+            >
+              Confirm the transaction
+            </button>
+          )}
+
+          {isSeller && hasTransferred && (
+            <button
+              onClick={ethersAuctionContract.resetAuction()}
+              className="btn bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full transition duration-300 ease-in-out"
+            >
+              Ensure End Auction
+            </button>
+          )}
+          
+        </>
+      )}
+  </div>
+</div>
+
   );
 };
 
