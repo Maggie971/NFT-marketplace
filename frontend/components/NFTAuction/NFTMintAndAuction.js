@@ -386,11 +386,19 @@ const NFTMintAndAuction = () => {
 
           {isSeller && hasTransferred && (
             <button
-              onClick={ethersAuctionContract.resetAuction()}
-              className="btn bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full transition duration-300 ease-in-out"
-            >
-              Ensure End Auction
-            </button>
+            onClick={async () => {
+              try {
+                const tx = await ethersAuctionContract.resetAuction();
+                await tx.wait(); // 等待交易确认
+                console.log("Auction has been reset successfully");
+              } catch (error) {
+                console.error("Failed to reset auction:", error);
+              }
+            }}
+            className="btn bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full"
+          >
+            Reset Auction
+          </button>          
           )}
           
         </>
