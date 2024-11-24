@@ -272,7 +272,7 @@ const NFTMintAndAuction = () => {
     const intervalId = setInterval(() => {
       fetchAuctionDetails();
       //ethersAuctionContract.resetAuction();
-    }, 10000); // 每10秒轮询一次
+    }, 1000); // 每10秒轮询一次
   
     return () => clearInterval(intervalId); // 清理定时器
   }, [ethersAuctionContract]);
