@@ -114,13 +114,18 @@ const NFTMintAndAuction = () => {
     if (!ethersNftContract || !account) return;
   
     try {
-      const balance = await ethersNftContract.balanceOf(account);
       const nfts = [];
-  
-      for (let i = 0; i < balance; i++) {
-        const tokenId = await ethersNftContract.tokenOfOwnerByIndex(account, i);
-        const tokenUri = await ethersNftContract.tokenURI(tokenId);
-        nfts.push({ tokenId, tokenUri });
+      for (let tokenId = 0; tokenId < 1000; tokenId++) { // 假设最多有 1000 个 Token
+        try {
+          const owner = await ethersNftContract.ownerOf(tokenId);
+          if (owner.toLowerCase() === account.toLowerCase()) {
+            const tokenUri = await ethersNftContract.tokenURI(tokenId);
+            nfts.push({ tokenId, tokenUri });
+          }
+        } catch (error) {
+          console.log(`Token ID ${tokenId} does not exist.`);
+          break; // 停止查询不存在的 Token
+        }
       }
   
       setUserNFTs(nfts);
@@ -128,6 +133,7 @@ const NFTMintAndAuction = () => {
       console.error('Failed to fetch user NFTs:', error);
     }
   };
+  
 
   useEffect(() => {
     fetchUserNFTs();
