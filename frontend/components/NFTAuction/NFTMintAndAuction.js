@@ -32,8 +32,7 @@ const NFTMintAndAuction = () => {
 
 
 
-  const checkIfSeller = async () => {
-    const checkIfSeller = async (tokenId) => {
+  const checkIfSeller = async (tokenId) => {
       if (ethersNftContract && account) {
         try {
           const owner = await ethersNftContract.ownerOf(tokenId);
