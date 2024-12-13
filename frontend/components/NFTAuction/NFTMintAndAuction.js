@@ -171,7 +171,7 @@ const NFTMintAndAuction = () => {
   
 
   const startAuction = async () => {
-    if (!ethersAuctionContract || !auctionAmount || !tokenId || !auctionDuration) {
+    if (!ethersAuctionContract || !auctionAmount || !selectedTokenId || !auctionDuration) {
       console.log('Missing contract, auction amount, tokenId, or auction duration');
       return;
     }
@@ -361,7 +361,6 @@ const NFTMintAndAuction = () => {
       loading="lazy"
     />
     <p className="text-center text-sm font-medium">Token ID: {nft.tokenId}</p>
-    //按钮
     <button
       onClick={() => handleSelectForAuction(nft.tokenId)}
       className="btn bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-full mt-2"
