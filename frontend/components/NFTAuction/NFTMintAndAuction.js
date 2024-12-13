@@ -118,10 +118,13 @@ const NFTMintAndAuction = () => {
   // 辅助函数：将 ipfs:// URL 转换为 https://ipfs.io/ipfs/ URL
   const normalizeIpfsUrl = (url) => {
     if (url.startsWith("ipfs://")) {
-      return url.replace("ipfs://", "https://ipfs.io/ipfs/");
+      // 将 ipfs:// 转换为 https://gateway.pinata.cloud/ipfs/
+      return url.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
     }
+    // 如果已经是完整的 URL，不做处理
     return url;
   };
+  
 
   const fetchUserNFTs = async () => {
     if (!ethersNftContract || !account) return;
