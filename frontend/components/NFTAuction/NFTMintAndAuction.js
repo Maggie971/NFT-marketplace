@@ -77,16 +77,21 @@ const NFTMintAndAuction = () => {
     setMintError('');
   };
 
-  const checkIfSeller = async () => {
-    if (selectedTokenId !== null && ethersNftContract && account) {
-      try {
-        const owner = await ethersNftContract.ownerOf(selectedTokenId); // 获取当前NFT的拥有者
-        setIsSeller(owner.toLowerCase() === account.toLowerCase()); // 判断当前地址是否是拥有者
-      } catch (error) {
-        console.error('Failed to fetch owner:', error);
+  useEffect(() => {
+    const checkIfSeller = async () => {
+      if (selectedTokenId !== null && ethersNftContract && account) {
+        try {
+          const owner = await ethersNftContract.ownerOf(selectedTokenId);
+          setIsSeller(owner.toLowerCase() === account.toLowerCase());
+        } catch (error) {
+          console.error('Failed to fetch owner:', error);
+          setIsSeller(false); // 如果获取失败，默认不是卖家
+        }
       }
-    }
-  };
+    };
+    checkIfSeller();
+  }, [selectedTokenId, ethersNftContract, account]);
+  
   
 
   const mintNFT = async () => {
@@ -131,7 +136,6 @@ const NFTMintAndAuction = () => {
 
   const handleSelectForAuction = (tokenId) => {
     setSelectedTokenId(tokenId);
-    checkIfSeller();
     console.log(`Selected Token ID for Auction: ${tokenId}`);
   };
 
