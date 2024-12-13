@@ -8,7 +8,7 @@ const config: HardhatUserConfig = {
   solidity: "0.8.4",
   networks: {
     tenderly: {
-      url: 'https://virtual.sepolia.rpc.tenderly.co/d655c5a4-5463-4149-a34b-6ad44664619c', // HTTP RPC URL
+      url: 'https://virtual.sepolia.rpc.tenderly.co/36472388-9982-4483-874f-0db281b21efd', // HTTP RPC URL
       accounts: [process.env.PRIVATE_KEY!] // 使用你的私钥，确保环境变量配置
     },
     localhost: {
