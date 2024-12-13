@@ -8,6 +8,15 @@ const ERC721_ABI = [
   "function ownerOf(uint256 tokenId) public view returns (address)"
 ];
 
+// 辅助函数：将 ipfs:// URL 转换为 https://ipfs.io/ipfs/ URL
+const normalizeIpfsUrl = (url) => {
+  if (url.startsWith("ipfs://")) {
+    return url.replace("ipfs://", "https://ipfs.io/ipfs/");
+  }
+  return url;
+};
+
+
 const NFTMintAndAuction = () => {
   const { ethersProvider, ethersNftContract, ethersAuctionContract, account } = useContext(Web3Context);
   const [nftUri, setNftUri] = useState('');
@@ -82,6 +91,7 @@ const NFTMintAndAuction = () => {
   
     const ipfsUri = await uploadToIPFS(imageFile);
     if (!ipfsUri) return;
+    setNftUri(normalizeIpfsUrl(ipfsUri));
   
     try {
       const tx = await ethersNftContract.safeMint(account, ipfsUri);
@@ -323,16 +333,16 @@ const NFTMintAndAuction = () => {
   {userNFTs.length > 0 ? (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {userNFTs.map((nft) => (
-        <div key={nft.tokenId} className="nft-card border border-gray-300 p-3 rounded-md">
-          <img
-            src={nft.tokenUri}
-            alt={`NFT ${nft.tokenId}`}
-            className="w-full h-48 object-cover mb-2 rounded"
-            loading="lazy"
-          />
-          <p className="text-center text-sm font-medium">Token ID: {nft.tokenId}</p>
-        </div>
-      ))}
+  <div key={nft.tokenId} className="nft-card border border-gray-300 p-3 rounded-md">
+    <img
+      src={normalizeIpfsUrl(nft.tokenUri)}
+      alt={`NFT ${nft.tokenId}`}
+      className="w-full h-48 object-cover mb-2 rounded"
+      loading="lazy"
+    />
+    <p className="text-center text-sm font-medium">Token ID: {nft.tokenId}</p>
+  </div>
+))}
     </div>
   ) : (
     <p className="text-gray-600">No NFTs found. Mint one to get started!</p>
