@@ -31,20 +31,19 @@ const NFTMintAndAuction = () => {
   const [selectedTokenId, setSelectedTokenId] = useState(null); // 存储选中的 Token ID
 
 
-  useEffect(() => {
-    const checkIfSeller = async () => {
-      if (tokenId !== null && ethersNftContract && account) {
-        try {
-          const owner = await ethersNftContract.ownerOf(tokenId);
-          setIsSeller(owner.toLowerCase() === account.toLowerCase());
-        } catch (error) {
-          console.error('Failed to fetch owner:', error);
-        }
-      }
-    };
-    checkIfSeller();
-  }, [tokenId, ethersNftContract, account]);
 
+  const checkIfSeller = async () => {
+    if (ethersNftContract && account) {
+      try {
+        const owner = await ethersNftContract.ownerOf(selectedTokenId);
+        setIsSeller(owner.toLowerCase() === account.toLowerCase());
+      } catch (error) {
+        console.error('Failed to fetch owner:', error);
+        setIsSeller(false); // 如果获取失败，默认不是卖家
+      }
+    }
+  };  
+  
   // 上传图片到 IPFS
   const uploadToIPFS = async (file) => {
     const formData = new FormData();
@@ -77,20 +76,7 @@ const NFTMintAndAuction = () => {
     setMintError('');
   };
 
-  useEffect(() => {
-    const checkIfSeller = async () => {
-      if (selectedTokenId !== null && ethersNftContract && account) {
-        try {
-          const owner = await ethersNftContract.ownerOf(selectedTokenId);
-          setIsSeller(owner.toLowerCase() === account.toLowerCase());
-        } catch (error) {
-          console.error('Failed to fetch owner:', error);
-          setIsSeller(false); // 如果获取失败，默认不是卖家
-        }
-      }
-    };
-    checkIfSeller();
-  }, [selectedTokenId, ethersNftContract, account]);
+  
   
   
 
@@ -134,14 +120,12 @@ const NFTMintAndAuction = () => {
     }
   };
 
-  const handleSelectForAuction = (tokenId) => {
-    setSelectedTokenId(tokenId);
-    console.log(`Selected Token ID for Auction: ${tokenId}`);
-  };
-
   useEffect(() => {
-    checkIfSeller(); // 每次 Token ID 或账户变化时检查
+    if (selectedTokenId) {
+      checkIfSeller();
+    }
   }, [selectedTokenId, ethersNftContract, account]);
+
   
   // 辅助函数：将 ipfs:// URL 转换为 https://ipfs.io/ipfs/ URL
   const normalizeIpfsUrl = (url) => {
