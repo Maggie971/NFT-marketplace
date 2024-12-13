@@ -28,6 +28,8 @@ const NFTMintAndAuction = () => {
   const [transferParams, setTransferParams] = useState(null);
   const [isSeller, setIsSeller] = useState(false);
   const [userNFTs, setUserNFTs] = useState([]);
+  const [selectedTokenId, setSelectedTokenId] = useState(null); // 存储选中的 Token ID
+
 
   useEffect(() => {
     const checkIfSeller = async () => {
@@ -115,6 +117,12 @@ const NFTMintAndAuction = () => {
     }
   };
 
+  const handleSelectForAuction = (tokenId) => {
+    setSelectedTokenId(tokenId);
+    console.log(`Selected Token ID for Auction: ${tokenId}`);
+  };
+  
+
   // 辅助函数：将 ipfs:// URL 转换为 https://ipfs.io/ipfs/ URL
   const normalizeIpfsUrl = (url) => {
     if (url.startsWith("ipfs://")) {
@@ -173,7 +181,7 @@ const NFTMintAndAuction = () => {
       const tx = await ethersAuctionContract.startAuction(
         ethers.parseEther(auctionAmount), 
         durationInSeconds,
-        tokenId // 传递 tokenId 到合约中
+        selectedTokenId // 传递 tokenId 到合约中
       );
       await tx.wait();
       console.log('Auction started');
@@ -289,7 +297,7 @@ const NFTMintAndAuction = () => {
         fromAddress: account,
         toAddress: highestBidder,
         ethAmount: highestBid,
-        tokenId: tokenId, // 使用最新的 tokenId
+        tokenId: selectedTokenId, // 使用最新的 tokenId
       };
       setTransferParams(params);
     }
@@ -353,6 +361,13 @@ const NFTMintAndAuction = () => {
       loading="lazy"
     />
     <p className="text-center text-sm font-medium">Token ID: {nft.tokenId}</p>
+    //按钮
+    <button
+      onClick={() => handleSelectForAuction(nft.tokenId)}
+      className="btn bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-full mt-2"
+    >
+      Select for Auction
+    </button>
   </div>
 ))}
     </div>
@@ -390,6 +405,9 @@ const NFTMintAndAuction = () => {
         )}
 
         <div>
+        {selectedTokenId !== null && (
+          <p className="text-gray-600">Selected Token ID for Auction: {selectedTokenId}</p>
+        )}
           <input
             type="text"
             placeholder="Starting Auction Bid (ETH)"
