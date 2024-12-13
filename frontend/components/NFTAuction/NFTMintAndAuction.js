@@ -122,6 +122,9 @@ const NFTMintAndAuction = () => {
       return url.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
     }
     // 如果已经是完整的 URL，不做处理
+    if (url.startsWith("https://ipfs.io/ipfs/https://gateway.pinata.cloud/ipfs/")) {
+      return url.replace("https://ipfs.io/ipfs/", ""); // 去掉多余前缀
+    }
     return url;
   };
   
