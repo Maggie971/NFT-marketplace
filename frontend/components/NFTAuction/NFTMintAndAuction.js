@@ -77,6 +77,18 @@ const NFTMintAndAuction = () => {
     setMintError('');
   };
 
+  const checkIfSeller = async () => {
+    if (selectedTokenId !== null && ethersNftContract && account) {
+      try {
+        const owner = await ethersNftContract.ownerOf(selectedTokenId); // 获取当前NFT的拥有者
+        setIsSeller(owner.toLowerCase() === account.toLowerCase()); // 判断当前地址是否是拥有者
+      } catch (error) {
+        console.error('Failed to fetch owner:', error);
+      }
+    }
+  };
+  
+
   const mintNFT = async () => {
     if (!ethersNftContract || !account) {
       console.log('Missing contract or account');
@@ -119,10 +131,14 @@ const NFTMintAndAuction = () => {
 
   const handleSelectForAuction = (tokenId) => {
     setSelectedTokenId(tokenId);
+    checkIfSeller();
     console.log(`Selected Token ID for Auction: ${tokenId}`);
   };
-  
 
+  useEffect(() => {
+    checkIfSeller(); // 每次 Token ID 或账户变化时检查
+  }, [selectedTokenId, ethersNftContract, account]);
+  
   // 辅助函数：将 ipfs:// URL 转换为 https://ipfs.io/ipfs/ URL
   const normalizeIpfsUrl = (url) => {
     if (url.startsWith("ipfs://")) {
@@ -362,11 +378,13 @@ const NFTMintAndAuction = () => {
     />
     <p className="text-center text-sm font-medium">Token ID: {nft.tokenId}</p>
     <button
-      onClick={() => handleSelectForAuction(nft.tokenId)}
-      className="btn bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-full mt-2"
-    >
-      Select for Auction
-    </button>
+  onClick={() => handleSelectForAuction(nft.tokenId)}
+  className="btn bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-full mt-2"
+>
+  Select for Auction
+</button>
+
+
   </div>
 ))}
     </div>
