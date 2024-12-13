@@ -33,16 +33,26 @@ const NFTMintAndAuction = () => {
 
 
   const checkIfSeller = async () => {
-    if (ethersNftContract && account) {
-      try {
-        const owner = await ethersNftContract.ownerOf(selectedTokenId);
-        setIsSeller(owner.toLowerCase() === account.toLowerCase());
-      } catch (error) {
-        console.error('Failed to fetch owner:', error);
-        setIsSeller(false); // 如果获取失败，默认不是卖家
+    const checkIfSeller = async (tokenId) => {
+      if (ethersNftContract && account) {
+        try {
+          const owner = await ethersNftContract.ownerOf(tokenId);
+          setIsSeller(owner.toLowerCase() === account.toLowerCase());
+        } catch (error) {
+          console.error('Failed to fetch owner:', error);
+          setIsSeller(false);
+        }
       }
-    }
-  };  
+    };
+    
+
+  const handleSelectForAuction = async (tokenId) => {
+    setSelectedTokenId(tokenId); // 设置用户选择的 Token ID
+    await checkIfSeller(tokenId); // 检查是否是当前账户拥有的 NFT
+    console.log(`Selected Token ID for Auction: ${tokenId}`);
+  };
+  
+  
   
   // 上传图片到 IPFS
   const uploadToIPFS = async (file) => {
