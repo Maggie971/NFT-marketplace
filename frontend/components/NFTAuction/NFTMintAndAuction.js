@@ -26,6 +26,7 @@ const NFTMintAndAuction = () => {
   const [hasTransferred, setHasTransferred] = useState(false);
   const [transferParams, setTransferParams] = useState(null);
   const [isSeller, setIsSeller] = useState(false);
+  const [userNFTs, setUserNFTs] = useState([]);
 
   useEffect(() => {
     const checkIfSeller = async () => {
@@ -108,6 +109,30 @@ const NFTMintAndAuction = () => {
       console.error('Minting failed:', error);
     }
   };
+
+  const fetchUserNFTs = async () => {
+    if (!ethersNftContract || !account) return;
+  
+    try {
+      const balance = await ethersNftContract.balanceOf(account);
+      const nfts = [];
+  
+      for (let i = 0; i < balance; i++) {
+        const tokenId = await ethersNftContract.tokenOfOwnerByIndex(account, i);
+        const tokenUri = await ethersNftContract.tokenURI(tokenId);
+        nfts.push({ tokenId, tokenUri });
+      }
+  
+      setUserNFTs(nfts);
+    } catch (error) {
+      console.error('Failed to fetch user NFTs:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserNFTs();
+  }, [ethersNftContract, account]);
+  
 
   const startAuction = async () => {
     if (!ethersAuctionContract || !auctionAmount || !tokenId || !auctionDuration) {
@@ -286,6 +311,27 @@ const NFTMintAndAuction = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white shadow-lg rounded-lg">
+    {/* NFT 集合展示 */}
+    <div className="mb-8">
+  <h2 className="text-2xl font-bold mb-4">Your NFT Collection</h2>
+  {userNFTs.length > 0 ? (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {userNFTs.map((nft) => (
+        <div key={nft.tokenId} className="nft-card border border-gray-300 p-3 rounded-md">
+          <img
+            src={nft.tokenUri}
+            alt={`NFT ${nft.tokenId}`}
+            className="w-full h-48 object-cover mb-2 rounded"
+            loading="lazy"
+          />
+          <p className="text-center text-sm font-medium">Token ID: {nft.tokenId}</p>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-gray-600">No NFTs found. Mint one to get started!</p>
+  )}
+</div>
   <div className="mb-4">
     {/* 拍卖未开始 */}
     {!auctionStarted && (
