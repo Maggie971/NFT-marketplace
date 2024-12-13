@@ -8,14 +8,6 @@ const ERC721_ABI = [
   "function ownerOf(uint256 tokenId) public view returns (address)"
 ];
 
-// 辅助函数：将 ipfs:// URL 转换为 https://ipfs.io/ipfs/ URL
-const normalizeIpfsUrl = (url) => {
-  if (url.startsWith("ipfs://")) {
-    return url.replace("ipfs://", "https://ipfs.io/ipfs/");
-  }
-  return url;
-};
-
 
 const NFTMintAndAuction = () => {
   const { ethersProvider, ethersNftContract, ethersAuctionContract, account } = useContext(Web3Context);
@@ -90,6 +82,9 @@ const NFTMintAndAuction = () => {
     }
   
     const ipfsUri = await uploadToIPFS(imageFile);
+    console.log(`Uploaded IPFS URI: ${ipfsUri}`);
+    const normalizedUri = normalizeIpfsUrl(ipfsUri);
+    console.log(`Normalized IPFS URI: ${normalizedUri}`);
     if (!ipfsUri) return;
     setNftUri(normalizeIpfsUrl(ipfsUri));
   
@@ -120,6 +115,14 @@ const NFTMintAndAuction = () => {
     }
   };
 
+  // 辅助函数：将 ipfs:// URL 转换为 https://ipfs.io/ipfs/ URL
+  const normalizeIpfsUrl = (url) => {
+    if (url.startsWith("ipfs://")) {
+      return url.replace("ipfs://", "https://ipfs.io/ipfs/");
+    }
+    return url;
+  };
+
   const fetchUserNFTs = async () => {
     if (!ethersNftContract || !account) return;
   
@@ -130,7 +133,9 @@ const NFTMintAndAuction = () => {
           const owner = await ethersNftContract.ownerOf(tokenId);
           if (owner.toLowerCase() === account.toLowerCase()) {
             const tokenUri = await ethersNftContract.tokenURI(tokenId);
-            nfts.push({ tokenId, tokenUri });
+            const normalizedUri = normalizeIpfsUrl(tokenUri);
+            console.log(`Token ID: ${tokenId}, Token URI: ${tokenUri}, Normalized URI: ${normalizedUri}`);
+            nfts.push({ tokenId, tokenUri: normalizedUri });
           }
         } catch (error) {
           console.log(`Token ID ${tokenId} does not exist.`);
@@ -143,6 +148,7 @@ const NFTMintAndAuction = () => {
       console.error('Failed to fetch user NFTs:', error);
     }
   };
+  
   
 
   useEffect(() => {
